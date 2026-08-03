@@ -208,7 +208,8 @@ class VoxCPM2TTSNode(io.ComfyNode):
         model_names = list(AVAILABLE_VOXCPM_MODELS.keys())
 
         available_devices = get_available_devices()
-        default_device = available_devices[0]
+        # Prefer GPU (cuda) whenever available; fall back to first listed device otherwise.
+        default_device = "cuda" if "cuda" in available_devices else available_devices[0]
 
         lora_list = ["None"] + folder_paths.get_filename_list("loras")
 
