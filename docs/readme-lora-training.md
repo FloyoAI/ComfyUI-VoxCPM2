@@ -99,7 +99,7 @@ This is the execution node. **Warning**: Running this node will block the ComfyU
     *   `base_model_name`: Select `VoxCPM2`.
     *   `train_config`: Connect from the Config node.
     *   `dataset_path`: Connect from the Dataset Maker node.
-    *   `output_name`: The name of the subfolder in `models/loras` where checkpoints will be saved.
+    *   `output_name`: The name of the subfolder in `#models/loras` where checkpoints will be saved.
     *   `max_steps`: Total training duration.
         *   *Rule of Thumb*: For a dataset of ~5 minutes, try 1000-2000 steps.
     *   `save_every_steps`: Checkpoint interval.
@@ -118,7 +118,7 @@ Step 20/1000, Loss: 1.892, LR: 0.00002000
 *   **Loss Spike**: Sudden increases are normal but should recover.
 
 ### Output Files
-After training, check `ComfyUI/models/loras/[output_name]/`:
+After training, check `#models/loras/[output_name]/` (Floyo user models). The trainer node also returns this path:
 1.  **`*.safetensors`**: The LoRA weight files.
 2.  **`lora_config.json`**: Configuration metadata required for loading.
 

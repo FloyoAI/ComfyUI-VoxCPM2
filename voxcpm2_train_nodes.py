@@ -7,6 +7,21 @@ from .modules.model_info import AVAILABLE_VOXCPM_MODELS
 from .modules.dataset_utils import create_jsonl_dataset
 
 logger = logging.getLogger(__name__)
+
+# Floyo persists trained LoRAs from this watched folder (not the first
+# registered loras path, which is the shared SSD cache).
+FLOYO_LORA_ROOT = "#models/loras"
+
+
+def resolve_floyo_lora_output_dir(output_name: str) -> tuple[str, str]:
+    """Resolve a LoRA run name to (absolute dir, Floyo #models reference)."""
+    safe_name = os.path.basename((output_name or "").strip().replace("\\", "/"))
+    if not safe_name or safe_name in (".", ".."):
+        raise ValueError("output_name must be a non-empty folder name.")
+    abs_dir = os.path.join(folder_paths.base_path, "#models", "loras", safe_name)
+    return abs_dir, f"{FLOYO_LORA_ROOT}/{safe_name}"
+
+
 # The training module imports 'argbind' and 'datasets'. 
 # We wrap this so the main inference node works without them.
 TRAINING_IMPORT_ERROR = None
@@ -106,7 +121,7 @@ class VoxCPM_LoraTrainer(io.ComfyNode):
                 io.Combo.Input("base_model_name", options=model_names, default=model_names[0], tooltip="Base VoxCPM model to fine-tune."),
                 io.AnyType.Input("train_config", tooltip="Configuration dictionary from VoxCPM Train Config node."),
                 io.String.Input("dataset_path", default="", tooltip="Path to the train.jsonl file."),
-                io.String.Input("output_name", default="my_lora_v1", tooltip="Name of the subfolder in 'models/loras' to save results."),
+                io.String.Input("output_name", default="my_lora_v1", tooltip="Name of the subfolder in #models/loras where checkpoints will be saved."),
                 io.Int.Input("max_steps", default=1000, min=100, max=100000, tooltip="Total number of training steps."),
                 io.Int.Input("save_every_steps", default=200, min=50, max=5000, tooltip="Save checkpoint every N steps."),
                 io.Int.Input("num_workers", default=0, min=0, max=8, tooltip="Number of dataloader workers (0 for main thread)."),
@@ -122,13 +137,12 @@ class VoxCPM_LoraTrainer(io.ComfyNode):
         if run_lora_training is None:
             raise RuntimeError(f"Training functionality unavailable. {TRAINING_IMPORT_ERROR}")
 
-        # Determine output directory using ComfyUI's standard paths
-        lora_base_dir = folder_paths.get_folder_paths("loras")[0]
-        output_dir = os.path.join(lora_base_dir, output_name)
-        
+        output_dir, floyo_output_path = resolve_floyo_lora_output_dir(output_name)
+        os.makedirs(os.path.dirname(output_dir), exist_ok=True)
+
         try:
             # Delegate to trainer module
-            final_output_dir = run_lora_training(
+            run_lora_training(
                 base_model_name=base_model_name,
                 train_config=train_config,
                 dataset_path=dataset_path,
@@ -136,10 +150,10 @@ class VoxCPM_LoraTrainer(io.ComfyNode):
                 max_steps=max_steps,
                 save_every_steps=save_every_steps,
                 num_workers=num_workers,
-                output_name=output_name,
+                output_name=os.path.basename(output_dir),
                 folder_paths_module=folder_paths # Pass folder_paths to resolve official models
             )
-            return io.NodeOutput(final_output_dir)
+            return io.NodeOutput(floyo_output_path)
         except Exception as e:
             logger.error(f"Training failed: {e}")
             raise e
